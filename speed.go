@@ -14,8 +14,8 @@ type SpeedInfo struct {
 
 // Main struct
 type Speed struct {
-  Update chan SpeedInfo // Send Update information
-  Done chan SpeedInfo // Send globale speed/time information
+  Update chan SpeedInfo // Emite Update information
+  Done chan SpeedInfo // Emite globale speed/time information. For stop all send SpeedInfo
 
   speed Byte
   speedControl bool
@@ -23,11 +23,11 @@ type Speed struct {
   w io.Writer
 }
 
-// write is dst
-// read is src
-// speed is speed of progression in Byte
+// write is dst,
+// read is src and
+// speed is speed of progression in Byte.
 // Return: Speed "object"
-func CopyControl(write io.Reader, read io.Writer, speed Byte) *Speed {
+func CopyControl(write io.Writer, read io.Reader, speed Byte) *Speed {
   up := make(chan SpeedInfo, 1000)
   done := make(chan SpeedInfo)
 
@@ -49,9 +49,9 @@ func CopyControl(write io.Reader, read io.Writer, speed Byte) *Speed {
   }
 }
 
-// Start transfer, return nil or error never io.EOF
-// You want to lunch in goroutine !
-func (s *Speed) Lunch() error {
+// Start transfer, return nil or error never io.EOF.
+// You MUST call Copy() in a goroutine !
+func (s *Speed) Copy() error {
   var err error
   var tmpSize int64
   var completSize Byte
@@ -66,8 +66,8 @@ func (s *Speed) Lunch() error {
     // Starte "Local" Compteur
     start := time.Now()
 
-    log.Println("Internal speed:", speed.Kilobyte())
-    log.Println("Avrange speed:", speedAvg.Kilobyte())
+    //log.Println("Internal speed:", speed.Kilobyte())
+    //log.Println("Avrange speed:", speedAvg.Kilobyte())
 
     tmpSize, err = io.CopyN(s.w, s.r, speed.Byte())
     if err != nil && err != io.EOF {
@@ -79,12 +79,19 @@ func (s *Speed) Lunch() error {
     sleep := time.Now().Sub(start)
     s.Update <- SpeedInfo{ Byte(tmpSize), sleep }
 
+    select {
+    case <-s.Done:
+      err = io.EOF
+    default:
+      break
+    }
 
     if err == io.EOF {
       break
     }
 
-    speedTmp := SpeedByteSeconds(Byte(tmpSize), sleep)
+
+    speedTmp := BytePerSeconds(Byte(tmpSize), sleep)
 
     // Update Avrange speed. And "low" weighting the new element
     // 1/3 
