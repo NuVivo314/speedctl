@@ -3,6 +3,7 @@ package speedctl
 import (
 	"io"
 	"log"
+	"sync"
 	"time"
 )
 
@@ -17,10 +18,31 @@ type Speed struct {
 	Update chan SpeedInfo // Emite Update information
 	Done   chan SpeedInfo // Emite globale speed/time information. For stop all send SpeedInfo
 
+	speedLock    sync.Mutex
 	speed        Byte
 	speedControl bool
 	r            io.Reader
 	w            io.Writer
+}
+
+// Disable speed control
+func (s *Speed) Unlookspeed() {
+	s.speedLock.Lock()
+
+	s.speedControl = false
+	s.speed = BuffStep
+
+	s.speedLock.Unlock()
+}
+
+// Update speed and enable speed control
+func (s *Speed) UpdateLimit(speed Byte) {
+	s.speedLock.Lock()
+
+	s.speedControl = true
+	s.speed = speed
+
+	s.speedLock.Unlock()
 }
 
 // write is dst,
@@ -40,8 +62,10 @@ func CopyControl(write io.Writer, read io.Reader, speed Byte) *Speed {
 	}
 
 	return &Speed{
-		Update:       up,
-		Done:         done,
+		Update: up,
+		Done:   done,
+
+		speedLock:    new(sync.Mutex),
 		speed:        speed,
 		speedControl: speedControl,
 		r:            read,
@@ -50,7 +74,7 @@ func CopyControl(write io.Writer, read io.Reader, speed Byte) *Speed {
 }
 
 // Start transfer, return nil or error never io.EOF.
-// You MUST call Copy() in a goroutine or event loop!
+// You MUST call Copy() in a goroutine !
 func (s *Speed) Copy() error {
 	var err error
 	var tmpSize int64
@@ -65,9 +89,6 @@ func (s *Speed) Copy() error {
 	for {
 		// Starte "Local" Compteur
 		start := time.Now()
-
-		//log.Println("Internal speed:", speed.Kilobyte())
-		//log.Println("Avrange speed:", speedAvg.Kilobyte())
 
 		tmpSize, err = io.CopyN(s.w, s.r, speed.Byte())
 		if err != nil && err != io.EOF {
@@ -96,6 +117,7 @@ func (s *Speed) Copy() error {
 		// 1/3
 		speedAvg = ((speedAvg * 2) + speedTmp) / 3
 
+		s.speedLock.Lock()
 		if s.speedControl {
 			if sleep < time.Second && speedAvg >= s.speed {
 				speed = s.speed
@@ -104,6 +126,7 @@ func (s *Speed) Copy() error {
 		} else {
 			speed += BuffStep
 		}
+		s.speedLock.Unlock()
 
 	}
 
