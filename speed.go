@@ -18,7 +18,7 @@ type Speed struct {
 	Update chan SpeedInfo // Emite Update information
 	Done   chan SpeedInfo // Emite globale speed/time information. For stop all send SpeedInfo
 
-	speedLock    sync.Mutex
+	speedLock    *sync.Mutex
 	speed        Byte
 	speedControl bool
 	r            io.Reader
@@ -79,6 +79,7 @@ func (s *Speed) Copy() error {
 	var err error
 	var tmpSize int64
 	var completSize Byte
+	var start time.Time
 
 	speed := s.speed
 	speedAvg := BuffStep
@@ -86,9 +87,10 @@ func (s *Speed) Copy() error {
 	// Starte "Globale compteur"
 	startGlobal := time.Now()
 
+	defer s.speedLock.Unlock()
 	for {
-		// Starte "Local" Compteur
-		start := time.Now()
+		// Start "Local" Compteur
+		start = time.Now()
 
 		tmpSize, err = io.CopyN(s.w, s.r, speed.Byte())
 		if err != nil && err != io.EOF {
@@ -104,10 +106,6 @@ func (s *Speed) Copy() error {
 		case <-s.Done:
 			err = io.EOF
 		default:
-			break
-		}
-
-		if err == io.EOF {
 			break
 		}
 
@@ -127,7 +125,6 @@ func (s *Speed) Copy() error {
 			speed += BuffStep
 		}
 		s.speedLock.Unlock()
-
 	}
 
 	if err == nil || err == io.EOF {

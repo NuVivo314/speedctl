@@ -11,22 +11,28 @@ const (
 )
 
 func TestDevNullSpeed10Kb(t *testing.T) {
-	testZero(zero, null, 10*Kilobyte, t)
+	testZero(zero, null, 10*Kilobyte, false, t)
 }
 
 func TestDevNullSpeed100Kb(t *testing.T) {
-	testZero(zero, null, 100*Kilobyte, t)
+	testZero(zero, null, 100*Kilobyte, false, t)
 }
 
 func TestDevNullSpeed10MB(t *testing.T) {
-	testZero(zero, null, 10*Megabyte, t)
+	testZero(zero, null, 10*Megabyte, false, t)
 }
 
 func TestDevNullSpeedUnlimite(t *testing.T) {
-	testZero(zero, null, 0, t)
+	testZero(zero, null, 0, false, t)
 }
 
-func testZero(src string, dst string, speed Byte, t *testing.T) {
+func TestDevNullSpeedUpdated(t *testing.T) {
+	testZero(zero, null, 10*Megabyte, true, t)
+}
+
+func testZero(src string, dst string, speed Byte, speedChange bool, t *testing.T) {
+	var volume Byte = speed * 10
+
 	dstFile, err := os.OpenFile(dst, os.O_WRONLY, 0)
 	if err != nil {
 		t.Fatal(err.Error())
@@ -52,21 +58,25 @@ func testZero(src string, dst string, speed Byte, t *testing.T) {
 		}
 	}()
 
-	i := 0
 	var speedInfo Byte
 LOOP:
 	for {
 		select {
 		case update := <-sc.Update:
 			t.Logf("Update: %s/s", BytePerSeconds(update.Size, update.Duration))
-			i += 1
+			if speedChange {
+				t.Log("Change speed", 1*Kilobyte)
+				sc.UpdateLimit(1 * Megabyte)
+				t.Log("Done")
+			}
+			volume -= update.Size
 			continue
 		case done := <-sc.Done:
 			speedInfo = BytePerSeconds(done.Size, done.Duration)
 			t.Logf("Done: %s/s", speedInfo)
 			break LOOP
 		default:
-			if i >= 10 {
+			if volume <= 0 {
 				sc.Done <- SpeedInfo{}
 			}
 		}

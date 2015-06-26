@@ -20,3 +20,13 @@ func TestByte(t *testing.T) {
 	t.Logf("Terabyte %s", tb)
 	t.Logf("Petabyte %s", pb)
 }
+
+func TestParse(t *testing.T) {
+	b := Byte(0)
+	if err := b.ParseByte("10GB"); err != nil {
+		t.Log(err)
+	} else {
+		t.Logf("Gigabyte %s", b)
+	}
+
+}

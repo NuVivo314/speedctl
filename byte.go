@@ -69,6 +69,20 @@ func (b Byte) String() string {
 	return fmt.Sprintf("%d %s", valu, unit)
 }
 
+func (b *Byte) ParseByte(parse string) error {
+	speed := 0
+	unit := ""
+
+	fmt.Sscanf(parse, "%d%s", &speed, &unit)
+
+	if v, ok := convMap[unit]; ok {
+		*b = Byte(speed) * v
+		return nil
+	}
+
+	return UnknowUnit
+}
+
 // Convert Byte/Duration into Byte/second
 func BytePerSeconds(bytes Byte, dur time.Duration) Byte {
 	f := float64(bytes.Byte()) / dur.Seconds()
