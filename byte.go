@@ -83,6 +83,15 @@ func (b *Byte) ParseByte(parse string) error {
 	return UnknowUnit
 }
 
+func (b *Byte) UnmarshalJSON(js []byte) error {
+	p := string(js[1 : len(js)-1])
+	return b.ParseByte(p)
+}
+
+func (b *Byte) MarshalJSON() ([]byte, error) {
+	return []byte("\"" + b.String() + "\""), nil
+}
+
 // Convert Byte/Duration into Byte/second
 func BytePerSeconds(bytes Byte, dur time.Duration) Byte {
 	f := float64(bytes.Byte()) / dur.Seconds()
