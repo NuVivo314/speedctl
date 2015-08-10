@@ -88,8 +88,16 @@ func (b *Byte) UnmarshalJSON(js []byte) error {
 	return b.ParseByte(p)
 }
 
+func (b *Byte) UnmarshalText(toml []byte) error {
+	return b.UnmarshalJSON(toml)
+}
+
 func (b *Byte) MarshalJSON() ([]byte, error) {
 	return []byte("\"" + b.String() + "\""), nil
+}
+
+func (b *Byte) MarshalText() ([]byte, error) {
+	return b.MarshalJSON()
 }
 
 // Convert Byte/Duration into Byte/second
